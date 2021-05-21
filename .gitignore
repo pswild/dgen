@@ -1,12 +1,17 @@
-# ignore thumbs.db
+# ignore .db
 *.db
 
+# ignore pickles
+*.pkl
+
 # ignore compiled python
+__pycache__/
 *.pyc
 
 # ignore DS_Stores
 *.DS_Store
 
+# ignore select files
 data_share/WIND_HEIGHTS_COSTS_20140320.xlsx
 r/graphics/.RData
 r/graphics/.Rhistory
@@ -33,8 +38,8 @@ excel/~$scenario_inputs_solar.xlsm
 # ignore a common format for outputing agent dataframes during debugging (e.g., df_2014.csv)
 df_*.*
 
-# Ignore pg_param files
+# ignore pg_param files
 python/pg_params*.json
 
-# Unchanging reference documents that are large enough to warrant not committing
+# ignore unchanging reference documents large enough to warrant not committing
 timeslice_8760_wH17.csv

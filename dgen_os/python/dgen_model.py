@@ -43,7 +43,7 @@ def main(mode = None, resume_year = None, endyear = None, ReEDS_inputs = None):
         engine = utilfunc.make_engine(model_settings.pg_engine_string)
 
         # register access to hstore in postgres
-        pgx.register_hstore(con)  
+        pgx.register_hstore(con)
 
         logger.info("Connected to Postgres with the following params:\n{}".format(model_settings.pg_params_log))
         owner = model_settings.role
@@ -73,12 +73,12 @@ def main(mode = None, resume_year = None, endyear = None, ReEDS_inputs = None):
             out_dir = model_settings.out_dir
             (out_scen_path, scenario_names, dup_n) = datfunc.create_scenario_results_folder(input_scenario, scen_name,
                                                              scenario_names, out_dir, dup_n)
-                                                             
+
             # create folder for input data csvs for this scenario
             scenario_settings.dir_to_write_input_data = out_scen_path + '/input_data'
             scenario_settings.scen_output_dir = out_scen_path
             os.makedirs(scenario_settings.dir_to_write_input_data)
-                                                             
+
             # get other datasets needed for the model run
             logger.info('Getting various scenario parameters')
 
@@ -95,14 +95,14 @@ def main(mode = None, resume_year = None, endyear = None, ReEDS_inputs = None):
             # CREATE AGENTS
             #==========================================================================================================
             logger.info("--------------Creating Agents---------------")
-            
+
             if scenario_settings.techs in [['wind'], ['solar']]:
 
                 # =========================================================
                 # Initialize agents
-                # =========================================================   
-                           
-                solar_agents = iFuncs.import_agent_file(scenario_settings, con, cur, engine, model_settings, agent_file_status, input_name='agent_file')   
+                # =========================================================
+
+                solar_agents = iFuncs.import_agent_file(scenario_settings, con, cur, engine, model_settings, agent_file_status, input_name='agent_file')
 
                 # Get set of columns that define agent's immutable attributes
                 cols_base = list(solar_agents.df.columns)
@@ -165,7 +165,7 @@ def main(mode = None, resume_year = None, endyear = None, ReEDS_inputs = None):
                         last_year_installed_capacity = agent_mutation.elec.get_state_starting_capacities(con, schema)
 
                     state_capacity_by_year = agent_mutation.elec.calc_state_capacity_by_year(con, schema, load_growth, peak_demand_mw, is_first_year, year,solar_agents,last_year_installed_capacity)
-                    
+
                     #Apply net metering parameters
                     net_metering_state_df, net_metering_utility_df = agent_mutation.elec.get_nem_settings(nem_state_capacity_limits, nem_state_and_sector_attributes, nem_utility_and_sector_attributes, nem_selected_scenario, year, state_capacity_by_year, cf_during_peak_demand)
                     solar_agents.on_frame(agent_mutation.elec.apply_export_tariff_params, [net_metering_state_df, net_metering_utility_df])
@@ -197,14 +197,14 @@ def main(mode = None, resume_year = None, endyear = None, ReEDS_inputs = None):
                     # Apply host-owned financial parameters
                     solar_agents.on_frame(agent_mutation.elec.apply_financial_params, [financing_terms, itc_options, inflation_rate])
 
-                    if 'ix' not in os.name: 
+                    if 'ix' not in os.name:
                         cores = None
                     else:
                         cores = model_settings.local_cores
 
                     # Apply state incentives
                     solar_agents.on_frame(agent_mutation.elec.apply_state_incentives, [state_incentives, year, model_settings.start_year, state_capacity_by_year])
-                    
+
                     # Calculate System Financial Performance
                     solar_agents.chunk_on_row(financial_functions.calc_system_size_and_performance, sectors=scenario_settings.sectors, cores=cores, rate_switch_table=rate_switch_table)
 
@@ -244,8 +244,8 @@ def main(mode = None, resume_year = None, endyear = None, ReEDS_inputs = None):
                     write_annual_agents = True
                     drop_fields = ['index', 'reeds_reg', 'customers_in_bin_initial', 'load_kwh_per_customer_in_bin_initial',
                                    'load_kwh_in_bin_initial', 'sector', 'roof_adjustment', 'load_kwh_in_bin', 'naep',
-                                   'first_year_elec_bill_savings_frac', 'metric', 'developable_load_kwh_in_bin', 'initial_number_of_adopters', 'initial_pv_kw', 
-                                   'initial_market_share', 'initial_market_value', 'market_value_last_year', 'teq_yr1', 'mms_fix_zeros', 'ratio', 
+                                   'first_year_elec_bill_savings_frac', 'metric', 'developable_load_kwh_in_bin', 'initial_number_of_adopters', 'initial_pv_kw',
+                                   'initial_market_share', 'initial_market_value', 'market_value_last_year', 'teq_yr1', 'mms_fix_zeros', 'ratio',
                                    'teq2', 'f', 'new_adopt_fraction', 'bass_market_share', 'diffusion_market_share', 'new_market_value', 'market_value', 'total_gen_twh',
                                    'consumption_hourly', 'solar_cf_profile', 'tariff_dict', 'deprec_sch', 'batt_dispatch_profile',
                                    'cash_flow', 'cbi', 'ibi', 'pbi', 'cash_incentives', 'state_incentives', 'export_tariff_results']
@@ -267,7 +267,7 @@ def main(mode = None, resume_year = None, endyear = None, ReEDS_inputs = None):
             elif scenario_settings.techs == ['wind']:
                 logger.error('Wind not yet supported')
                 break
-            
+
             #==============================================================================
             #    Outputs & Visualization
             #==============================================================================
@@ -280,7 +280,7 @@ def main(mode = None, resume_year = None, endyear = None, ReEDS_inputs = None):
             con.close()
             datfunc.drop_output_schema(model_settings.pg_conn_string, scenario_settings.schema, model_settings.delete_output_schema)
             #####################################################################
-            
+
             logger.info("-------------Model Run Complete-------------")
             time_to_complete = time.time() - model_settings.model_init
             logger.info('Completed in: {} seconds'.format(round(time_to_complete, 1)))

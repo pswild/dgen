@@ -27,7 +27,7 @@ logger = utilfunc.get_logger()
 def calc_system_performance(kw, pv, utilityrate, loan, batt, costs, agent, rate_switch_table, en_batt=True, batt_simple_dispatch=0):
     """
     Executes Battwatts, Utilityrate5, and Cashloan PySAM modules with system sizes (kw) as input
-    
+
     Parameters
     ----------
     kw: Capacity (in kW)
@@ -55,7 +55,7 @@ def calc_system_performance(kw, pv, utilityrate, loan, batt, costs, agent, rate_
     dc = [(i * kw) * 1000 for i in gen_hourly] # W
     ac = [i * inv_eff for i in dc] # W
     gen = [i / 1000 for i in ac] # W to kW
-    
+
     # Set up battery, with system generation conditional on the battery generation being included
     if en_batt:
 
@@ -71,8 +71,8 @@ def calc_system_performance(kw, pv, utilityrate, loan, batt, costs, agent, rate_
         # PV to Battery ratio (kW) - From Ashreeta, 02/08/2020
         pv_to_batt_ratio = 1.31372
         batt_capacity_to_power_ratio = 2 # hours of operation
-        
-        desired_size = kw / pv_to_batt_ratio # Default SAM value for residential systems is 10 
+
+        desired_size = kw / pv_to_batt_ratio # Default SAM value for residential systems is 10
         desired_power = desired_size / batt_capacity_to_power_ratio
 
         batt_inputs = {
@@ -111,22 +111,22 @@ def calc_system_performance(kw, pv, utilityrate, loan, batt, costs, agent, rate_
             agent, one_time_charge = agent_mutation.elec.apply_rate_switch(rate_switch_table, agent, computed_size, tech='storage')
         else:
             one_time_charge = 0.
-              
+
         # declare value for net billing sell rate
         if agent.loc['compensation_style']=='none':
             net_billing_sell_rate = 0.
         else:
             net_billing_sell_rate = agent.loc['wholesale_elec_price_dollars_per_kwh'] * agent.loc['elec_price_multiplier']
-        
+
         utilityrate = process_tariff(utilityrate, agent.loc['tariff_dict'], net_billing_sell_rate)
         utilityrate.SystemOutput.gen = batt.Outputs.gen
 
         loan.BatterySystem.en_batt = 1
         loan.BatterySystem.batt_computed_bank_capacity = batt.Outputs.batt_bank_installed_capacity
         loan.BatterySystem.batt_bank_replacement = batt.Outputs.batt_bank_replacement
-        
+
         # #loan.BatterySystem.battery_per_kWh = costs['batt_capex_per_kwh']
-        
+
         # # Battery capacity-based System Costs amount [$/kWcap]
         # loan.SystemCosts.om_capacity1 = [costs['batt_om_per_kw']]
 
@@ -141,12 +141,12 @@ def calc_system_performance(kw, pv, utilityrate, loan, batt, costs, agent, rate_
         # if PV system size nonzero, specify combined O&M costs; otherwise, specify standalone O&M costs
         if kw > 0:
             loan.BatterySystem.battery_per_kWh = costs['batt_capex_per_kwh_combined']
-            
+
             loan.SystemCosts.om_capacity = [costs['system_om_per_kw_combined'] + costs['system_variable_om_per_kw_combined']]
             loan.SystemCosts.om_capacity1 = [costs['batt_om_per_kw_combined']]
             loan.SystemCosts.om_production1 = [costs['batt_om_per_kwh_combined'] * 1000.]
             loan.SystemCosts.om_replacement_cost1 = [0.]
-            
+
             system_costs = costs['system_capex_per_kw_combined'] * kw
 
             # specify linear constant adder for PV+batt (combined) system
@@ -155,34 +155,34 @@ def calc_system_performance(kw, pv, utilityrate, loan, batt, costs, agent, rate_
 
         else:
             loan.BatterySystem.battery_per_kWh = costs['batt_capex_per_kwh']
-            
+
             loan.SystemCosts.om_capacity = [costs['system_om_per_kw'] + costs['system_variable_om_per_kw']]
             loan.SystemCosts.om_capacity1 = [costs['batt_om_per_kw']]
             loan.SystemCosts.om_production1 = [costs['batt_om_per_kwh'] * 1000.]
             loan.SystemCosts.om_replacement_cost1 = [0.]
-            
+
             system_costs = costs['system_capex_per_kw'] * kw
 
             # specify linear constant adder for standalone battery system
             linear_constant = agent.loc['linear_constant']
 
-        
+
         # Battery capacity for System Costs values [kW]
         loan.SystemCosts.om_capacity1_nameplate = batt.Battery.batt_simple_kw
         # Battery production for System Costs values [kWh]
         loan.SystemCosts.om_production1_values = [batt.Battery.batt_simple_kwh] # should this be batt.Outputs.batt_bank_installed_capacity?
 
         #batt_costs = (costs['batt_capex_per_kw']*batt.Battery.batt_simple_kw) + (costs['batt_capex_per_kwh'] * batt.Battery.batt_simple_kwh)
-        batt_costs = ((costs['batt_capex_per_kw_combined']*batt.Battery.batt_simple_kw) + 
+        batt_costs = ((costs['batt_capex_per_kw_combined']*batt.Battery.batt_simple_kw) +
                       (costs['batt_capex_per_kwh_combined'] * batt.Battery.batt_simple_kwh))
 
         value_of_resiliency = agent.loc['value_of_resiliency_usd']
-        
+
     else:
         batt.Battery.batt_simple_enable = 0
         loan.BatterySystem.en_batt = 0
         computed_power = computed_size = 0
-        
+
         # apply solar rate switch if computed_size is nonzero
         if kw > 0:
             agent, one_time_charge = agent_mutation.elec.apply_rate_switch(rate_switch_table, agent, kw, tech='solar')
@@ -194,18 +194,18 @@ def calc_system_performance(kw, pv, utilityrate, loan, batt, costs, agent, rate_
             net_billing_sell_rate = 0.
         else:
             net_billing_sell_rate = agent.loc['wholesale_elec_price_dollars_per_kwh'] * agent.loc['elec_price_multiplier']
-        
+
         utilityrate = process_tariff(utilityrate, agent.loc['tariff_dict'], net_billing_sell_rate)
         utilityrate.SystemOutput.gen = gen
 
         loan.BatterySystem.en_batt = 1
-        
+
         # specify number of O&M types (0 = PV only)
         loan.SystemCosts.add_om_num_types = 0
         # since battery system size is zero, specify standalone PV O&M costs
         loan.SystemCosts.om_capacity = [costs['system_om_per_kw'] + costs['system_variable_om_per_kw']]
         loan.SystemCosts.om_replacement_cost1 = [0.]
-        
+
         system_costs = costs['system_capex_per_kw'] * kw
 
         batt_costs = 0.
@@ -218,17 +218,17 @@ def calc_system_performance(kw, pv, utilityrate, loan, batt, costs, agent, rate_
     # Execute utility rate module
     utilityrate.Load.load = load_hourly
     #utilityrate.ElectricityRates.ur_metering_option = ur_metering_option
-    
+
     utilityrate.execute()
 
     loan = process_incentives(loan, kw, computed_power, computed_size, gen_hourly, agent)
-    
+
     # Specify final Cashloan parameters
     loan.FinancialParameters.system_capacity = kw
     # Add value_of_resiliency -- should only apply from year 1 onwards, not to year 0
-    annual_energy_value = ([utilityrate.Outputs.annual_energy_value[0]] + 
+    annual_energy_value = ([utilityrate.Outputs.annual_energy_value[0]] +
                            [x + value_of_resiliency for i,x in enumerate(utilityrate.Outputs.annual_energy_value) if i!=0])
-    loan.SystemOutput.annual_energy_value = annual_energy_value 
+    loan.SystemOutput.annual_energy_value = annual_energy_value
     loan.SystemOutput.gen = utilityrate.SystemOutput.gen
     loan.ThirdPartyOwnership.elec_cost_with_system = utilityrate.Outputs.elec_cost_with_system
     loan.ThirdPartyOwnership.elec_cost_without_system = utilityrate.Outputs.elec_cost_without_system
@@ -239,8 +239,8 @@ def calc_system_performance(kw, pv, utilityrate, loan, batt, costs, agent, rate_
 
     sales_tax = 0.
     loan.SystemCosts.total_installed_cost = direct_costs + linear_constant + sales_tax + one_time_charge
-    
-    # Execute financial module 
+
+    # Execute financial module
     loan.execute()
 
     return -loan.Outputs.npv
@@ -249,7 +249,7 @@ def calc_system_performance(kw, pv, utilityrate, loan, batt, costs, agent, rate_
 def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     """
     Calculate the optimal system and battery size and generation profile, and resulting bill savings and financial metrics.
-    
+
     Parameters
     ----------
     agent : 'pd.df'
@@ -273,7 +273,7 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
         - **first_year_elec_bill_with_system** - first year electricity bill with adopted system ($/yr)
         - **first_year_elec_bill_savings** - first year electricity bill savings with adopted system ($/yr)
         - **first_year_elec_bill_savings_frac** - fraction of savings on electricity bill in first year of system adoption
-        - **max_system_kw** - maximum system size allowed as constrained by roof size or not exceeding annual consumption 
+        - **max_system_kw** - maximum system size allowed as constrained by roof size or not exceeding annual consumption
         - **first_year_elec_bill_without_system** - first year electricity bill without adopted system ($/yr)
         - **avg_elec_price_cents_per_kwh** - first year electricity price (c/kwh)
         - **cbi** - ndarray of capacity-based incentives applicable to agent
@@ -284,7 +284,7 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     """
 
 
-    # Initialize new DB connection    
+    # Initialize new DB connection
     model_settings = settings.init_model_settings()
     con, cur = utilfunc.make_con(model_settings.pg_conn_string, model_settings.role)
 
@@ -300,7 +300,7 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     norm_scaled_pv_cf_profiles_df = agent_mutation.elec.get_and_apply_normalized_hourly_resource_solar(con, agent)
     pv['generation_hourly'] = pd.Series(norm_scaled_pv_cf_profiles_df['solar_cf_profile'].iloc[0]) /  1e6
     del norm_scaled_pv_cf_profiles_df
-    
+
     agent.loc['naep'] = float(np.sum(pv['generation_hourly']))
 
     # Battwatts
@@ -315,19 +315,19 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     else:
         utilityrate = utility.default("PVWattsBatteryCommercial")
     tariff_dict = agent.loc['tariff_dict']
-    
+
 
     ######################################
     ###--------- UTILITYRATE5 ---------###
     ###--- SYSTEM LIFETIME SETTINGS ---###
     ######################################
-    
+
     # Inflation rate [%]
     utilityrate.Lifetime.inflation_rate = agent.loc['inflation_rate'] * 100
-    
+
     # Number of years in analysis [years]
     utilityrate.Lifetime.analysis_period = agent.loc['economic_lifetime_yrs']
-    
+
     # Lifetime hourly system outputs [0/1]; Options: 0=hourly first year,1=hourly lifetime
     utilityrate.Lifetime.system_use_lifetime_output = 0
 
@@ -336,7 +336,7 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     ###--------- UTILITYRATE5 ---------###
     ###---- DEGRADATION/ESCALATION ----###
     ######################################
-    
+
     # Annual energy degradation [%]
     utilityrate.SystemOutput.degradation = [agent.loc['pv_degradation_factor'] * 100] # convert decimal to %
 
@@ -346,13 +346,13 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
 
     # Annual electricity rate escalation [%/year]
     utilityrate.ElectricityRates.rate_escalation  = [agent.loc['elec_price_escalator'] * 100] # convert decimal to %
-    
-    
+
+
     ######################################
     ###--------- UTILITYRATE5 ---------###
     ###---- NET METERING SETTINGS -----###
     ######################################
-    
+
     # Dictionary to map dGen compensation styles to PySAM options
     nem_options = {'net metering':0, 'net billing':2, 'buy all sell all':4, 'none':2}
     # Metering options [0=net energy metering,1=net energy metering with $ credits,2=net billing,3=net billing with carryover to next month,4=buy all - sell all]
@@ -364,33 +364,33 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
         net_billing_sell_rate = 0.
     else:
         net_billing_sell_rate = agent.loc['wholesale_elec_price_dollars_per_kwh'] * agent.loc['elec_price_multiplier']
-    
-    
+
+
     # ######################################
     # ###--------- UTILITYRATE5 ---------###
     # ###--- FIXED AND ANNUAL CHARGES ---###
     # ######################################
-    
+
     # # Monthly fixed charge [$]
     # utilityrate.ElectricityRates.ur_monthly_fixed_charge = tariff_dict['fixed_charge']
     # # Annual minimum charge [$]
     # utilityrate.ElectricityRates.ur_annual_min_charge = 0. # not currently tracked in URDB rate attribute downloads
     # # Monthly minimum charge [$]
     # utilityrate.ElectricityRates.ur_monthly_min_charge = 0. # not currently tracked in URDB rate attribute downloads
-    
-    
+
+
     # ######################################
     # ###--------- UTILITYRATE5 ---------###
     # ###-------- DEMAND CHARGES --------###
     # ######################################
-    
+
     # # Enable demand charge
     # utilityrate.ElectricityRates.ur_dc_enable = (tariff_dict['d_flat_exists']) | (tariff_dict['d_tou_exists'])
-    
+
     # if utilityrate.ElectricityRates.ur_dc_enable:
-    
+
     #     if tariff_dict['d_flat_exists']:
-            
+
     #         # Reformat demand charge table from dGen format
     #         n_periods = len(tariff_dict['d_flat_levels'][0])
     #         n_tiers = len(tariff_dict['d_flat_levels'])
@@ -399,13 +399,13 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     #             for tier in range(n_tiers):
     #                 row = [period, tier+1, tariff_dict['d_flat_levels'][tier][period], tariff_dict['d_flat_prices'][tier][period]]
     #                 ur_dc_flat_mat.append(row)
-            
+
     #         # Demand rates (flat) table
     #         utilityrate.ElectricityRates.ur_dc_flat_mat = ur_dc_flat_mat
-        
-        
+
+
     #     if tariff_dict['d_tou_exists']:
-            
+
     #         # Reformat demand charge table from dGen format
     #         n_periods = len(tariff_dict['d_tou_levels'][0])
     #         n_tiers = len(tariff_dict['d_tou_levels'])
@@ -414,17 +414,17 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     #             for tier in range(n_tiers):
     #                 row = [period+1, tier+1, tariff_dict['d_tou_levels'][tier][period], tariff_dict['d_tou_prices'][tier][period]]
     #                 ur_dc_tou_mat.append(row)
-            
+
     #         # Demand rates (TOU) table
     #         utilityrate.ElectricityRates.ur_dc_tou_mat = ur_dc_tou_mat
-    
-    
+
+
     #     # Reformat 12x24 tables - original are indexed to 0, PySAM needs index starting at 1
     #     d_wkday_12by24 = []
     #     for m in range(len(tariff_dict['d_wkday_12by24'])):
     #         row = [x+1 for x in tariff_dict['d_wkday_12by24'][m]]
     #         d_wkday_12by24.append(row)
-            
+
     #     d_wkend_12by24 = []
     #     for m in range(len(tariff_dict['d_wkend_12by24'])):
     #         row = [x+1 for x in tariff_dict['d_wkend_12by24'][m]]
@@ -434,21 +434,21 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     #     utilityrate.ElectricityRates.ur_dc_sched_weekday = d_wkday_12by24
     #     # Demand charge weekend schedule
     #     utilityrate.ElectricityRates.ur_dc_sched_weekend = d_wkend_12by24
-    
-    
+
+
     # ######################################
     # ###--------- UTILITYRATE5 ---------###
     # ###-------- ENERGY CHARGES --------###
     # ######################################
-    
+
     # if tariff_dict['e_exists']:
-        
+
     #     # Dictionary to map dGen max usage units to PySAM options
     #     max_usage_dict = {'kWh':0, 'kWh/kW':1, 'kWh daily':2, 'kWh/kW daily':3}
 
     #     # If max usage units are 'kWh daily', divide max usage by 30 -- rate download procedure converts daily to monthly
     #     modifier = 30. if tariff_dict['energy_rate_unit'] == 'kWh daily' else 1.
-        
+
     #     # Reformat energy charge table from dGen format
     #     n_periods = len(tariff_dict['e_levels'][0])
     #     n_tiers = len(tariff_dict['e_levels'])
@@ -458,50 +458,50 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     #             row = [period+1, tier+1, tariff_dict['e_levels'][tier][period]/modifier,
     #              max_usage_dict[tariff_dict['energy_rate_unit']], tariff_dict['e_prices'][tier][period], net_billing_sell_rate]
     #             ur_ec_tou_mat.append(row)
-        
+
     #     # Energy rates table
     #     utilityrate.ElectricityRates.ur_ec_tou_mat = ur_ec_tou_mat
-        
+
     #     # Reformat 12x24 tables - original are indexed to 0, PySAM needs index starting at 1
     #     e_wkday_12by24 = []
     #     for m in range(len(tariff_dict['e_wkday_12by24'])):
     #         row = [x+1 for x in tariff_dict['e_wkday_12by24'][m]]
     #         e_wkday_12by24.append(row)
-            
+
     #     e_wkend_12by24 = []
     #     for m in range(len(tariff_dict['e_wkend_12by24'])):
     #         row = [x+1 for x in tariff_dict['e_wkend_12by24'][m]]
     #         e_wkend_12by24.append(row)
-        
+
     #     # Energy charge weekday schedule
     #     utilityrate.ElectricityRates.ur_ec_sched_weekday = e_wkday_12by24
     #     # Energy charge weekend schedule
     #     utilityrate.ElectricityRates.ur_ec_sched_weekend = e_wkend_12by24
-        
-    
+
+
     ######################################
     ###--------- UTILITYRATE5 ---------###
     ###-------- BUY/SELL RATES --------###
     ######################################
-    
+
     # Enable time step sell rates [0/1]
     utilityrate.ElectricityRates.ur_en_ts_sell_rate = 0
-    
+
     # Time step sell rates [0/1]
     utilityrate.ElectricityRates.ur_ts_sell_rate = [0.]
-    
+
     # Set sell rate equal to buy rate [0/1]
     utilityrate.ElectricityRates.ur_sell_eq_buy = 0
-    
-    
+
+
     ######################################
     ###--------- UTILITYRATE5 ---------###
     ###-------- MISC. SETTINGS --------###
     ######################################
-    
+
     # Use single monthly peak for TOU demand charge; options: 0=use TOU peak,1=use flat peak
     utilityrate.ElectricityRates.TOU_demand_single_peak = 0 # ?
-    
+
     # Optionally enable/disable electricity_rate [years]
     utilityrate.ElectricityRates.en_electricity_rates = 1
 
@@ -510,8 +510,8 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     ###----- TARIFF RESTRUCTURING -----###
     ######################################
     utilityrate = process_tariff(utilityrate, agent.loc['tariff_dict'], net_billing_sell_rate)
-    
-    
+
+
     ######################################
     ###----------- CASHLOAN -----------###
     ###----- FINANCIAL PARAMETERS -----###
@@ -533,14 +533,14 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     loan.FinancialParameters.federal_tax_rate = [(agent.loc['tax_rate'] * 100) * 0.7] # SAM default
     loan.FinancialParameters.inflation_rate = agent.loc['inflation_rate'] * 100
     loan.FinancialParameters.insurance_rate = 0
-    loan.FinancialParameters.loan_rate = agent.loc['loan_interest_rate'] * 100    
+    loan.FinancialParameters.loan_rate = agent.loc['loan_interest_rate'] * 100
     loan.FinancialParameters.loan_term = agent.loc['loan_term_yrs']
     loan.FinancialParameters.mortgage = 0 # default value - standard loan (no mortgage)
     loan.FinancialParameters.prop_tax_assessed_decline = 5 # PySAM default
     loan.FinancialParameters.prop_tax_cost_assessed_percent = 95 # PySAM default
     loan.FinancialParameters.property_tax_rate = 0 # PySAM default
     loan.FinancialParameters.real_discount_rate = agent.loc['real_discount_rate'] * 100
-    loan.FinancialParameters.salvage_percentage = 0    
+    loan.FinancialParameters.salvage_percentage = 0
     loan.FinancialParameters.state_tax_rate = [(agent.loc['tax_rate'] * 100) * 0.3] # SAM default
     loan.FinancialParameters.system_heat_rate = 0
 
@@ -549,7 +549,7 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     ###----------- CASHLOAN -----------###
     ###--------- SYSTEM COSTS ---------###
     ######################################
-    
+
     # System costs that are input to loan.SystemCosts will depend on system configuration (PV, batt, PV+batt)
     # and are therefore specified in calc_system_performance()
 
@@ -573,69 +573,69 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     system_costs['batt_om_per_kw_combined'] = agent.loc['batt_om_per_kw_combined']
     system_costs['batt_om_per_kwh_combined'] = agent.loc['batt_om_per_kwh_combined']
     system_costs['linear_constant_combined'] = agent.loc['linear_constant_combined']
-    
+
 
 
     ######################################
     ###----------- CASHLOAN -----------###
     ###---- DEPRECIATION PARAMETERS ---###
     ######################################
-    
+
     if agent.loc['sector_abbr'] == 'res':
         loan.Depreciation.depr_fed_type = 0
         loan.Depreciation.depr_sta_type = 0
     else:
         loan.Depreciation.depr_fed_type = 1
         loan.Depreciation.depr_sta_type = 0
-    
+
     ######################################
     ###----------- CASHLOAN -----------###
     ###----- TAX CREDIT INCENTIVES ----###
     ######################################
-    
+
     loan.TaxCreditIncentives.itc_fed_percent = agent.loc['itc_fraction_of_capex'] * 100
 
     ######################################
     ###----------- CASHLOAN -----------###
     ###-------- BATTERY SYSTEM --------###
     ######################################
-    
+
     loan.BatterySystem.batt_replacement_option = 2 # user schedule
-    
+
     batt_replacement_schedule = [0 for i in range(0, agent.loc['batt_lifetime_yrs'] - 1)] + [1]
     loan.BatterySystem.batt_replacement_schedule = batt_replacement_schedule
-    
-    
+
+
     ######################################
     ###----------- CASHLOAN -----------###
     ###-------- SYSTEM OUTPUT ---------###
     ######################################
-    
+
     loan.SystemOutput.degradation = [agent.loc['pv_degradation_factor'] * 100]
-    
-    
+
+
     ######################################
     ###----------- CASHLOAN -----------###
     ###----------- LIFETIME -----------###
     ######################################
-    
+
     loan.Lifetime.system_use_lifetime_output = 0
 
-    ###################################### 
-    ###-------- SYSTEM SIZING ---------### 
+    ######################################
+    ###-------- SYSTEM SIZING ---------###
     ######################################
 
-    
+
     # From dGen - calc_system_size_and_financial_performance()
     max_size_load = agent.loc['load_kwh_per_customer_in_bin'] / agent.loc['naep']
     max_size_roof = agent.loc['developable_roof_sqft'] * agent.loc['pv_kw_per_sqft']
     max_system_kw = min(max_size_load, max_size_roof)
-    
+
     # set tolerance for minimize_scalar based on max_system_kw value
     tol = min(0.25 * max_system_kw, 0.5)
     #tol = 0.25 * max_system_kw
 
-    # Calculate the PV system size that maximizes the agent's NPV, to a tolerance of 0.5 kW. 
+    # Calculate the PV system size that maximizes the agent's NPV, to a tolerance of 0.5 kW.
     # Note that the optimization is technically minimizing negative NPV
     # ! As is, because of the tolerance this function would not necessarily return a system size of 0 or max PV size if those are optimal
     res_with_batt = optimize.minimize_scalar(calc_system_performance,
@@ -651,10 +651,10 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
 
     batt_kw = batt.Battery.batt_simple_kw
     batt_kwh = batt.Battery.batt_simple_kwh
-    batt_dispatch_profile = batt.Outputs.batt_power 
+    batt_dispatch_profile = batt.Outputs.batt_power
 
     # Run without battery
-    res_no_batt = optimize.minimize_scalar(calc_system_performance, 
+    res_no_batt = optimize.minimize_scalar(calc_system_performance,
                                            args = (pv, utilityrate, loan, batt, system_costs, agent, rate_switch_table, False, 0),
                                            bounds = (0, max_system_kw),
                                            method = 'bounded',
@@ -730,13 +730,13 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
         pbi_total_oth = no_batt_loan_outputs['cf_pbi_total_oth']
         pbi_total_sta = no_batt_loan_outputs['cf_pbi_total_sta']
         pbi_total_uti = no_batt_loan_outputs['cf_pbi_total_uti']
-        
+
 
     # change 0 value to 1 to avoid divide by zero errors
     if first_year_elec_bill_without_system == 0:
         first_year_elec_bill_without_system = 1.0
 
-    # Add outputs to agent df    
+    # Add outputs to agent df
     naep = annual_energy_production_kwh / system_kw
     first_year_elec_bill_savings = first_year_elec_bill_without_system - first_year_elec_bill_with_system
     first_year_elec_bill_savings_frac = first_year_elec_bill_savings / first_year_elec_bill_without_system
@@ -759,7 +759,7 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
     agent.loc['batt_kwh'] = batt_kwh
     agent.loc['batt_dispatch_profile'] = batt_dispatch_profile
 
-    # Financial outputs (find out which ones to include): 
+    # Financial outputs (find out which ones to include):
     agent.loc['cbi'] = np.array({'cbi_total': cbi_total,
             'cbi_total_fed': cbi_total_fed,
             'cbi_total_oth': cbi_total_oth,
@@ -779,7 +779,7 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
             'pbi_total_uti': pbi_total_uti
             })
     agent.loc['cash_incentives'] = ''
-    agent.loc['export_tariff_results'] = '' 
+    agent.loc['export_tariff_results'] = ''
 
     out_cols = ['agent_id',
                 'system_kw',
@@ -811,7 +811,7 @@ def calc_system_size_and_performance(agent, sectors, rate_switch_table=None):
 def process_tariff(utilityrate, tariff_dict, net_billing_sell_rate):
     """
     Instantiate the utilityrate5 PySAM model and process the agent's rate json object to conform with PySAM input formatting.
-    
+
     Parameters
     ----------
     agent : 'pd.Series'
@@ -819,33 +819,33 @@ def process_tariff(utilityrate, tariff_dict, net_billing_sell_rate):
     Returns
     -------
     utilityrate: 'PySAM.Utilityrate5'
-    """    
-    
+    """
+
     ######################################
     ###--------- UTILITYRATE5 ---------###
     ###--- FIXED AND ANNUAL CHARGES ---###
     ######################################
-    
+
     # Monthly fixed charge [$]
     utilityrate.ElectricityRates.ur_monthly_fixed_charge = tariff_dict['fixed_charge']
     # Annual minimum charge [$]
     utilityrate.ElectricityRates.ur_annual_min_charge = 0. # not currently tracked in URDB rate attribute downloads
     # Monthly minimum charge [$]
     utilityrate.ElectricityRates.ur_monthly_min_charge = 0. # not currently tracked in URDB rate attribute downloads
-    
-    
+
+
     ######################################
     ###--------- UTILITYRATE5 ---------###
     ###-------- DEMAND CHARGES --------###
     ######################################
-    
+
     # Enable demand charge
     utilityrate.ElectricityRates.ur_dc_enable = (tariff_dict['d_flat_exists']) | (tariff_dict['d_tou_exists'])
-    
+
     if utilityrate.ElectricityRates.ur_dc_enable:
-    
+
         if tariff_dict['d_flat_exists']:
-            
+
             # Reformat demand charge table from dGen format
             n_periods = len(tariff_dict['d_flat_levels'][0])
             n_tiers = len(tariff_dict['d_flat_levels'])
@@ -854,13 +854,13 @@ def process_tariff(utilityrate, tariff_dict, net_billing_sell_rate):
                 for tier in range(n_tiers):
                     row = [period, tier+1, tariff_dict['d_flat_levels'][tier][period], tariff_dict['d_flat_prices'][tier][period]]
                     ur_dc_flat_mat.append(row)
-            
+
             # Demand rates (flat) table
             utilityrate.ElectricityRates.ur_dc_flat_mat = ur_dc_flat_mat
-        
-        
+
+
         if tariff_dict['d_tou_exists']:
-            
+
             # Reformat demand charge table from dGen format
             n_periods = len(tariff_dict['d_tou_levels'][0])
             n_tiers = len(tariff_dict['d_tou_levels'])
@@ -869,17 +869,17 @@ def process_tariff(utilityrate, tariff_dict, net_billing_sell_rate):
                 for tier in range(n_tiers):
                     row = [period+1, tier+1, tariff_dict['d_tou_levels'][tier][period], tariff_dict['d_tou_prices'][tier][period]]
                     ur_dc_tou_mat.append(row)
-            
+
             # Demand rates (TOU) table
             utilityrate.ElectricityRates.ur_dc_tou_mat = ur_dc_tou_mat
-    
-    
+
+
         # Reformat 12x24 tables - original are indexed to 0, PySAM needs index starting at 1
         d_wkday_12by24 = []
         for m in range(len(tariff_dict['d_wkday_12by24'])):
             row = [x+1 for x in tariff_dict['d_wkday_12by24'][m]]
             d_wkday_12by24.append(row)
-            
+
         d_wkend_12by24 = []
         for m in range(len(tariff_dict['d_wkend_12by24'])):
             row = [x+1 for x in tariff_dict['d_wkend_12by24'][m]]
@@ -889,20 +889,20 @@ def process_tariff(utilityrate, tariff_dict, net_billing_sell_rate):
         utilityrate.ElectricityRates.ur_dc_sched_weekday = d_wkday_12by24
         # Demand charge weekend schedule
         utilityrate.ElectricityRates.ur_dc_sched_weekend = d_wkend_12by24
-    
-    
+
+
     ######################################
     ###--------- UTILITYRATE5 ---------###
     ###-------- ENERGY CHARGES --------###
     ######################################
-    
+
     if tariff_dict['e_exists']:
-        
+
         # Dictionary to map dGen max usage units to PySAM options
         max_usage_dict = {'kWh':0, 'kWh/kW':1, 'kWh daily':2, 'kWh/kW daily':3}
         # If max usage units are 'kWh daily', divide max usage by 30 -- rate download procedure converts daily to monthly
         modifier = 30. if tariff_dict['energy_rate_unit'] == 'kWh daily' else 1.
-        
+
         # Reformat energy charge table from dGen format
         n_periods = len(tariff_dict['e_levels'][0])
         n_tiers = len(tariff_dict['e_levels'])
@@ -912,33 +912,33 @@ def process_tariff(utilityrate, tariff_dict, net_billing_sell_rate):
                 row = [period+1, tier+1, tariff_dict['e_levels'][tier][period], max_usage_dict[tariff_dict['energy_rate_unit']],
                  tariff_dict['e_prices'][tier][period], net_billing_sell_rate]
                 ur_ec_tou_mat.append(row)
-        
+
         # Energy rates table
         utilityrate.ElectricityRates.ur_ec_tou_mat = ur_ec_tou_mat
-        
+
         # Reformat 12x24 tables - original are indexed to 0, PySAM needs index starting at 1
         e_wkday_12by24 = []
         for m in range(len(tariff_dict['e_wkday_12by24'])):
             row = [x+1 for x in tariff_dict['e_wkday_12by24'][m]]
             e_wkday_12by24.append(row)
-            
+
         e_wkend_12by24 = []
         for m in range(len(tariff_dict['e_wkend_12by24'])):
             row = [x+1 for x in tariff_dict['e_wkend_12by24'][m]]
             e_wkend_12by24.append(row)
-        
+
         # Energy charge weekday schedule
         utilityrate.ElectricityRates.ur_ec_sched_weekday = e_wkday_12by24
         # Energy charge weekend schedule
         utilityrate.ElectricityRates.ur_ec_sched_weekend = e_wkend_12by24
-        
-    
+
+
     return utilityrate
 
 
 #%%
 def process_incentives(loan, kw, batt_kw, batt_kwh, generation_hourly, agent):
-    
+
     ######################################
     ###----------- CASHLOAN -----------###
     ###------ PAYMENT INCENTIVES ------###
@@ -946,135 +946,135 @@ def process_incentives(loan, kw, batt_kw, batt_kwh, generation_hourly, agent):
 
     # Read incentive dataframe from agent attributes
     incentive_df = agent.loc['state_incentives']
-    
+
     # Check dtype of incentive_df - process incentives if pd.DataFrame, otherwise do not assign incentive values to cashloan
     if isinstance(incentive_df, pd.DataFrame):
-        
+
         # Fill NaNs in incentive_df - assume max incentive duration of 5 years and max incentive value of $10,000
         incentive_df = incentive_df.fillna(value={'incentive_duration_yrs' : 5, 'max_incentive_usd' : 10000})
         # Filter for CBI's in incentive_df
-        cbi_df = (incentive_df.loc[pd.notnull(incentive_df['cbi_usd_p_w'])]                  
+        cbi_df = (incentive_df.loc[pd.notnull(incentive_df['cbi_usd_p_w'])]
                   .sort_values(['cbi_usd_p_w'], axis=0, ascending=False)
                   .reset_index(drop=True)
                  )
-        
+
         # Process state capacity-based incentives (CBI)
         #cbi_value = calculate_capacity_based_incentives(kw, batt_kw, batt_kwh, agent)
-        
+
         # For multiple CBIs that are applicable to the agent, cap at 2 and use PySAM's "state" and "other" option
         if len(cbi_df) == 1:
-            
+
             loan.PaymentIncentives.cbi_sta_amount = cbi_df['cbi_usd_p_w'].iloc[0]
             loan.PaymentIncentives.cbi_sta_deprbas_fed = 0
             loan.PaymentIncentives.cbi_sta_deprbas_sta = 0
             loan.PaymentIncentives.cbi_sta_maxvalue = cbi_df['max_incentive_usd'].iloc[0]
             loan.PaymentIncentives.cbi_sta_tax_fed = 0
             loan.PaymentIncentives.cbi_sta_tax_sta = 0
-            
+
         elif len(cbi_df) >= 2:
-            
+
             loan.PaymentIncentives.cbi_sta_amount = cbi_df['cbi_usd_p_w'].iloc[0]
             loan.PaymentIncentives.cbi_sta_deprbas_fed = 0
             loan.PaymentIncentives.cbi_sta_deprbas_sta = 0
             loan.PaymentIncentives.cbi_sta_maxvalue = cbi_df['max_incentive_usd'].iloc[0]
             loan.PaymentIncentives.cbi_sta_tax_fed = 1
             loan.PaymentIncentives.cbi_sta_tax_sta = 1
-            
+
             loan.PaymentIncentives.cbi_oth_amount = cbi_df['cbi_usd_p_w'].iloc[1]
             loan.PaymentIncentives.cbi_oth_deprbas_fed = 0
             loan.PaymentIncentives.cbi_oth_deprbas_sta = 0
             loan.PaymentIncentives.cbi_oth_maxvalue = cbi_df['max_incentive_usd'].iloc[1]
             loan.PaymentIncentives.cbi_oth_tax_fed = 1
             loan.PaymentIncentives.cbi_oth_tax_sta = 1
-            
+
         else:
             pass
-        
+
         # Filter for PBI's in incentive_df
         pbi_df = (incentive_df.loc[pd.notnull(incentive_df['pbi_usd_p_kwh'])]
                   .sort_values(['pbi_usd_p_kwh'], axis=0, ascending=False)
                   .reset_index(drop=True)
                  )
-        
+
         # Process state production-based incentives (CBI)
         agent.loc['timesteps_per_year'] = 1
         pv_kwh_by_year = np.array(list(map(lambda x: sum(x), np.split(np.array(generation_hourly), agent.loc['timesteps_per_year']))))
         pv_kwh_by_year = np.concatenate([(pv_kwh_by_year - (pv_kwh_by_year * agent.loc['pv_degradation_factor'] * i)) for i in range(1, agent.loc['economic_lifetime_yrs']+1)])
         kwh_by_timestep = kw * pv_kwh_by_year
-        
+
         #pbi_value = calculate_production_based_incentives(kw, kwh_by_timestep, agent)
-    
+
         # For multiple PBIs that are applicable to the agent, cap at 2 and use PySAM's "state" and "other" option
         if len(pbi_df) == 1:
-            
-            # Aamount input [$/kWh] requires sequence -- repeat pbi_usd_p_kwh using incentive_duration_yrs 
+
+            # Aamount input [$/kWh] requires sequence -- repeat pbi_usd_p_kwh using incentive_duration_yrs
             loan.PaymentIncentives.pbi_sta_amount = [pbi_df['pbi_usd_p_kwh'].iloc[0]] * int(pbi_df['incentive_duration_yrs'].iloc[0])
             loan.PaymentIncentives.pbi_sta_escal = 0.
             loan.PaymentIncentives.pbi_sta_tax_fed = 1
             loan.PaymentIncentives.pbi_sta_tax_sta = 1
             loan.PaymentIncentives.pbi_sta_term = pbi_df['incentive_duration_yrs'].iloc[0]
-            
+
         elif len(pbi_df) >= 2:
-            
-            # Aamount input [$/kWh] requires sequence -- repeat pbi_usd_p_kwh using incentive_duration_yrs 
+
+            # Aamount input [$/kWh] requires sequence -- repeat pbi_usd_p_kwh using incentive_duration_yrs
             loan.PaymentIncentives.pbi_sta_amount = [pbi_df['pbi_usd_p_kwh'].iloc[0]] * int(pbi_df['incentive_duration_yrs'].iloc[0])
             loan.PaymentIncentives.pbi_sta_escal = 0.
             loan.PaymentIncentives.pbi_sta_tax_fed = 1
             loan.PaymentIncentives.pbi_sta_tax_sta = 1
             loan.PaymentIncentives.pbi_sta_term = pbi_df['incentive_duration_yrs'].iloc[0]
-            
-            # Aamount input [$/kWh] requires sequence -- repeat pbi_usd_p_kwh using incentive_duration_yrs 
+
+            # Aamount input [$/kWh] requires sequence -- repeat pbi_usd_p_kwh using incentive_duration_yrs
             loan.PaymentIncentives.pbi_oth_amount = [pbi_df['pbi_usd_p_kwh'].iloc[1]] * int(pbi_df['incentive_duration_yrs'].iloc[1])
             loan.PaymentIncentives.pbi_oth_escal = 0.
             loan.PaymentIncentives.pbi_oth_tax_fed = 1
             loan.PaymentIncentives.pbi_oth_tax_sta = 1
             loan.PaymentIncentives.pbi_oth_term = pbi_df['incentive_duration_yrs'].iloc[1]
-            
+
         else:
             pass
-        
+
         # Filter for IBI's in incentive_df
         ibi_df = (incentive_df.loc[pd.notnull(incentive_df['ibi_pct'])]
                   .sort_values(['ibi_pct'], axis=0, ascending=False)
                   .reset_index(drop=True)
                  )
-        
+
         # Process state investment-based incentives (CBI)
         #ibi_value = calculate_investment_based_incentives(kw, batt_kw, batt_kwh, agent)
-        
+
         # For multiple IBIs that are applicable to the agent, cap at 2 and use PySAM's "state" and "other" option
         # NOTE: this specifies IBI percentage, instead of IBI absolute amount
         if len(ibi_df) == 1:
-    
+
             loan.PaymentIncentives.ibi_sta_percent = ibi_df['ibi_pct'].iloc[0]
             loan.PaymentIncentives.ibi_sta_percent_deprbas_fed = 0
             loan.PaymentIncentives.ibi_sta_percent_deprbas_sta = 0
             loan.PaymentIncentives.ibi_sta_percent_maxvalue = ibi_df['max_incentive_usd'].iloc[0]
             loan.PaymentIncentives.ibi_sta_percent_tax_fed = 1
             loan.PaymentIncentives.ibi_sta_percent_tax_sta = 1
-            
+
         elif len(ibi_df) >= 2:
-            
+
             loan.PaymentIncentives.ibi_sta_percent = ibi_df['ibi_pct'].iloc[0]
             loan.PaymentIncentives.ibi_sta_percent_deprbas_fed = 0
             loan.PaymentIncentives.ibi_sta_percent_deprbas_sta = 0
             loan.PaymentIncentives.ibi_sta_percent_maxvalue = ibi_df['max_incentive_usd'].iloc[0]
             loan.PaymentIncentives.ibi_sta_percent_tax_fed = 1
             loan.PaymentIncentives.ibi_sta_percent_tax_sta = 1
-            
+
             loan.PaymentIncentives.ibi_oth_percent = ibi_df['ibi_pct'].iloc[1]
             loan.PaymentIncentives.ibi_oth_percent_deprbas_fed = 0
             loan.PaymentIncentives.ibi_oth_percent_deprbas_sta = 0
             loan.PaymentIncentives.ibi_oth_percent_maxvalue = ibi_df['max_incentive_usd'].iloc[1]
             loan.PaymentIncentives.ibi_oth_percent_tax_fed = 1
             loan.PaymentIncentives.ibi_oth_percent_tax_sta = 1
-            
+
         else:
             pass
-        
+
     else:
         pass
-    
+
     return loan
 
 
@@ -1095,8 +1095,8 @@ def calc_financial_performance(dataframe):
     """
 
     dataframe = dataframe.reset_index()
-    cfs = np.vstack(dataframe['cash_flow']).astype(np.float)    
-    
+    cfs = np.vstack(dataframe['cash_flow']).astype(np.float)
+
     # calculate payback period
     tech_lifetime = np.shape(cfs)[1] - 1
     payback = calc_payback_vectorized(cfs, tech_lifetime)
@@ -1125,10 +1125,10 @@ def calc_payback_vectorized(cfs, tech_lifetime):
     -------
     - **payback_period**: 'numpy.ndarray' - Payback period in years
     """
-    
+
     years = np.array([np.arange(0, tech_lifetime)] * cfs.shape[0])
-    
-    cum_cfs = cfs.cumsum(axis = 1)   
+
+    cum_cfs = cfs.cumsum(axis = 1)
     no_payback = np.logical_or(cum_cfs[:, -1] <= 0, np.all(cum_cfs <= 0, axis = 1))
     instant_payback = np.all(cum_cfs > 0, axis = 1)
     neg_to_pos_years = np.diff(np.sign(cum_cfs)) > 0
@@ -1142,10 +1142,10 @@ def calc_payback_vectorized(cfs, tech_lifetime):
     frac_years = base_year_values/(base_year_values - next_year_values)
     pp_year = base_years_fix + frac_years
     pp_precise = np.where(no_payback, 30.1, np.where(instant_payback, 0, pp_year))
-    
+
     # round to nearest 0.1 to join with max_market_share
     pp_final = np.array(pp_precise).round(decimals =1)
-    
+
     return pp_final
 
 
@@ -1155,37 +1155,37 @@ def calc_max_market_share(dataframe, max_market_share_df):
 
     in_cols = list(dataframe.columns)
     dataframe = dataframe.reset_index()
-    
+
     dataframe['business_model'] = 'host_owned'
     dataframe['metric'] = 'payback_period'
-    
+
     # Convert metric value to integer as a primary key, then bound within max market share ranges
     max_payback = max_market_share_df[max_market_share_df.metric == 'payback_period'].payback_period.max()
     min_payback = max_market_share_df[max_market_share_df.metric == 'payback_period'].payback_period.min()
     max_mbs = max_market_share_df[max_market_share_df.metric == 'percent_monthly_bill_savings'].payback_period.max()
     min_mbs = max_market_share_df[max_market_share_df.metric == 'percent_monthly_bill_savings'].payback_period.min()
-    
+
     # copy the metric valeus to a new column to store an edited version
     payback_period_bounded = dataframe['payback_period'].values.copy()
-    
+
     # where the metric value exceeds the corresponding max market curve bounds, set the value to the corresponding bound
     payback_period_bounded[np.where((dataframe.metric == 'payback_period') & (dataframe['payback_period'] < min_payback))] = min_payback
-    payback_period_bounded[np.where((dataframe.metric == 'payback_period') & (dataframe['payback_period'] > max_payback))] = max_payback    
+    payback_period_bounded[np.where((dataframe.metric == 'payback_period') & (dataframe['payback_period'] > max_payback))] = max_payback
     payback_period_bounded[np.where((dataframe.metric == 'percent_monthly_bill_savings') & (dataframe['payback_period'] < min_mbs))] = min_mbs
     payback_period_bounded[np.where((dataframe.metric == 'percent_monthly_bill_savings') & (dataframe['payback_period'] > max_mbs))] = max_mbs
     #dataframe['payback_period_bounded'] = payback_period_bounded
     dataframe['payback_period_bounded'] = np.round(payback_period_bounded.astype(float), 1)
 
-    # scale and round to nearest int    
+    # scale and round to nearest int
     dataframe['payback_period_as_factor'] = (dataframe['payback_period_bounded'] * 100).round().astype('int')
     # add a scaled key to the max_market_share dataframe too
     max_market_share_df['payback_period_as_factor'] = (max_market_share_df['payback_period'] * 100).round().astype('int')
 
-    # Join the max_market_share table and dataframe in order to select the ultimate mms based on the metric value. 
-    dataframe = pd.merge(dataframe, max_market_share_df[['sector_abbr', 'max_market_share', 'metric', 'payback_period_as_factor', 'business_model']], 
+    # Join the max_market_share table and dataframe in order to select the ultimate mms based on the metric value.
+    dataframe = pd.merge(dataframe, max_market_share_df[['sector_abbr', 'max_market_share', 'metric', 'payback_period_as_factor', 'business_model']],
         how = 'left', on = ['sector_abbr', 'metric','payback_period_as_factor','business_model'])
-    
-    out_cols = in_cols + ['max_market_share', 'metric']    
+
+    out_cols = in_cols + ['max_market_share', 'metric']
 
     return dataframe[out_cols]
 
@@ -1289,7 +1289,7 @@ def check_incentive_constraints(incentive_data, incentive_value, system_cost):
 
 #     # Create a empty dataframe to store cumulative pbi's for each system configuration (each system should have an array as long as the number of years times the number of timesteps per year)
 #     result = np.tile(np.array([0]*agent.loc['economic_lifetime_yrs']*agent.loc['timesteps_per_year']), (1,1))
-    
+
 #     #Loop through incentives
 #     for row in pbi_list.to_dict('records'):
 #         #Build boolean array to express if system sizes are valid
@@ -1422,4 +1422,3 @@ def eqn_linear_decay_to_zero(incentive_info, info_params, default_params,additio
 #%%
 def eqn_flat_rate(incentive_info, info_params, default_params,additional_params):
     return eqn_builder('flat_rate', incentive_info, info_params, default_params,additional_params)
-

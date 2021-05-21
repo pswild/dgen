@@ -12,7 +12,7 @@ accomplished via the Docker Desktop app or the command line.
 
 `$ docker start postgis_1`
 
-3. Navigate to the directory containing your testing script.
+3. Navigate to the directory containing your testing notebook.
 
 `$ cd /path_to_dir/`
 
@@ -20,4 +20,4 @@ accomplished via the Docker Desktop app or the command line.
 
 `$ jupyter notebook`
 
-5. Run your testing script.
+5. Run your testing notebook.

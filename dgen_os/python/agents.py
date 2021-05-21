@@ -16,6 +16,7 @@ class Agents(object):
     def __init__(self, agents_df):
         """
         Initialize Agents Class
+
         Parameters
         ----------
         agents_df : 'pd.df'
@@ -129,7 +130,7 @@ class Agents(object):
         else:
             results_df.set_index('agent_id', drop=True)
             return results_df
-    
+
     def on_frame(self, func, func_args=None, in_place=True, **kwargs):
         """Wrapper function around apply_on_frame with runtime tests."""
 
@@ -142,7 +143,7 @@ class Agents(object):
         else:
             results_df.set_index('agent_id', inplace=True, drop=True)
             return results_df
-    
+
     def run_with_runtime_tests(self, how_to_apply, func, func_args=None, cores=None, **kwargs):
         """
         Apply a function to a dataframe with:
@@ -162,7 +163,7 @@ class Agents(object):
 
         Notes
         -----
-        - Returns a df with agent_id as a *column*, not as the index. 
+        - Returns a df with agent_id as a *column*, not as the index.
             -THIS ALLOWS US TO GET RID OF MOST df.set_index('agent_id') AND df.reset_index(drop=False) THROUGHOUT THE CODEBASE.
         - Drops 'bad columns' that are created by merge errors or index resets ['level_0','index']
 
@@ -174,7 +175,7 @@ class Agents(object):
         if 'agent_id' not in self.df.columns:
             if self.df.index.name == 'agent_id':
                 self.df.reset_index(drop=False, inplace=True) #if agent_id is the name of the index, make it a column instead
-        
+
         # --- initialize variables for runtime tests ---
         initial_len  = len(self.df)
         initial_columns = list(self.df.columns)
@@ -200,7 +201,7 @@ class Agents(object):
 
         # --- Drop any bad columns added by function ---
         results_df = results_df.drop(['level_0','index'], axis='columns', errors='ignore')
-        
+
         # --- reset and grab post agent_id list ---
         if 'agent_id' not in results_df.columns:
             if results_df.index.name == 'agent_id':
@@ -210,10 +211,10 @@ class Agents(object):
         # --- check df after apply ---
         post_len = len(results_df)
         post_columns = list(results_df.columns)
-        duplicated_columns = ['_x' in c for c in post_columns] 
+        duplicated_columns = ['_x' in c for c in post_columns]
         new_columns = [c for c in post_columns if c not in initial_columns]
-        post_dtypes = list(results_df[initial_columns].dtypes) 
-        
+        post_dtypes = list(results_df[initial_columns].dtypes)
+
         # --- runtime tests ---
         #check for columns that were dropped
         missing_columns = [c for c in initial_columns if c not in post_columns]
@@ -301,8 +302,8 @@ class Agents(object):
 
     def apply_chunk_on_row(self, func, cores=None, **kwargs):
         """
-        Divide the dataframe into chunks according to the number of processors and 
-        then apply function to agents on an agent by agent basis within that 
+        Divide the dataframe into chunks according to the number of processors and
+        then apply function to agents on an agent by agent basis within that
         dataframe chunk. Function should return a df to be merged onto the original df.
         Parameters
         ----------
@@ -334,18 +335,18 @@ class Agents(object):
             else:
                 EXECUTOR = cf.ProcessPoolExecutor
 
-            logger.info('Number of Workers inside chunk_on_row is {}'.format(cores)) 
+            logger.info('Number of Workers inside chunk_on_row is {}'.format(cores))
             futures = []
             chunk_size = int(self.df.shape[0]/cores)
             chunks = [self.df.loc[self.df.index[i:i + chunk_size]] for i in range(0, self.df.shape[0], chunk_size)]
-            
+
             with EXECUTOR(max_workers=cores) as executor:
                 for agent_chunks in chunks:
                     for _, row in agent_chunks.iterrows():
                         futures.append(executor.submit(func, row, **kwargs))
-    
+
                     results = [future.result() for future in futures]
-                results_df = pd.concat(results, axis=1, sort=False).T              
+                results_df = pd.concat(results, axis=1, sort=False).T
 
         return results_df
 
@@ -378,7 +379,7 @@ class Agents(object):
             results_df = func(self.df, *func_args, **kwargs)
         else:
             results_df = func(self.df, func_args, **kwargs)
-        
+
         return results_df
 
     def to_pickle(self, file_name):
