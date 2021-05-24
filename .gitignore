@@ -11,6 +11,9 @@ __pycache__/
 # ignore DS_Stores
 *.DS_Store
 
+# Jupyter Notebook
+*.ipynb_checkpoints
+
 # ignore select files
 data_share/WIND_HEIGHTS_COSTS_20140320.xlsx
 r/graphics/.RData
