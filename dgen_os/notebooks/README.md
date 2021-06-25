@@ -8,7 +8,8 @@ start analyzing the model's output.
 `$ conda activate dg3n`
 
 2. Activate the Docker container with PostgreSQL intialized. This can be
-accomplished via the Docker Desktop app or the command line.
+accomplished via the Docker Desktop app or the command line as long as Docker
+Desktop is running in the background.
 
 `$ docker start postgis_1`
 

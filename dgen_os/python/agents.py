@@ -338,6 +338,11 @@ class Agents(object):
             logger.info('Number of Workers inside chunk_on_row is {}'.format(cores))
             futures = []
             chunk_size = int(self.df.shape[0]/cores)
+
+            # Corner case for agent dataframe with one row.
+            if chunk_size == 0:
+                chunk_size = 1
+
             chunks = [self.df.loc[self.df.index[i:i + chunk_size]] for i in range(0, self.df.shape[0], chunk_size)]
 
             with EXECUTOR(max_workers=cores) as executor:

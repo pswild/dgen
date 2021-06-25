@@ -107,6 +107,8 @@ def main(mode = None, resume_year = None, endyear = None, ReEDS_inputs = None):
                 # Get set of columns that define agent's immutable attributes
                 cols_base = list(solar_agents.df.columns)
 
+                logger.info(f'Number of agents: {len(solar_agents)}')
+
             #==============================================================================
             # TECHNOLOGY DEPLOYMENT
             #==============================================================================
@@ -241,7 +243,7 @@ def main(mode = None, resume_year = None, endyear = None, ReEDS_inputs = None):
                     #==========================================================================================================
                     # WRITE AGENT DF AS PICKLES FOR POST-PROCESSING
                     #==========================================================================================================
-                    write_annual_agents = True
+                    write_annual_agents = True # MODIFY THIS IF YOU DO NOT WANT TO CREATE AGENT PICKLE FILES FOR EACH YEAR OF MODEL RUN
                     drop_fields = ['index', 'reeds_reg', 'customers_in_bin_initial', 'load_kwh_per_customer_in_bin_initial',
                                    'load_kwh_in_bin_initial', 'sector', 'roof_adjustment', 'load_kwh_in_bin', 'naep',
                                    'first_year_elec_bill_savings_frac', 'metric', 'developable_load_kwh_in_bin', 'initial_number_of_adopters', 'initial_pv_kw',
