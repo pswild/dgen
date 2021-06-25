@@ -9,141 +9,101 @@ Created on Thu May 24 17:24:00 2021
 
 # --- Imports ---
 
-# Standard Library
-import os
-import sys
-import logging
-
 # External Packages
 import pandas as pd
 import psycopg2 as pg
 
-# Local Modules
-# ...
-
-# --- Logging ---
-
-log = logging.getLogger(__name__)
-logging.basicConfig(
-    format='%(asctime)s [%(levelname)s] [%(filename)s:%(funcName)s:%(lineno)s]: %(message)s',
-    datefmt='%m/%d/%Y at %I:%M:%S %p',
-    filename='../logs/compare_results.log',
-    filemode='a',
-    level=logging.INFO
-)
-
 # ------------------------------------------------------------------------------
 
 
-class CompareResults():
+def connect_to_db(database):
     """
-    Modular class for comparing the results of two dGen runs.
-    - database: name of dGen database being hosted locally
-    - base_schema: name of schema in which base results are stored
-    - test_schema: name of schema in which test results are stored
-    - table: name of table to compare between schemas
+    Connects to local PostgreSQL database.
+    Returns connection.
     """
 
-    def __init__(
-        self,
-        database='dgen_db_de',
-        base_schema='diffusion_results_single_agent_base_case',
-        test_schema='diffusion_results_single_agent_test_case',
-        table='agent_outputs'
-    ):
+    # Connect to database.
+    con = pg.connect(
+        host='localhost',
+        port=5432,
+        database=database,
+        user='postgres',
+        password='postgres'
+    )
 
-        # Attributes.
-        self.database = database
-        self.base_schema = base_schema
-        self.test_schema = test_schema
-        self.table = table
-        self.con = None
+    return(con)
 
-    def _connect_to_db(self):
-        """Connects to local PostgreSQL database. Returns connection."""
 
-        # Connect to database.
-        self.con = pg.connect(
-            host='localhost',
-            port=5432,
-            database=self.database,
-            user='postgres',
-            password='postgres'
-        )
+def disconnect_from_db(con):
+    """Disconnects from local PostgreSQL database."""
 
-        return
+    # Close connection.
+    con.close()
 
-    def _disconnect_from_db(self):
-        """Disconnects from local PostgreSQL database."""
+    return
 
-        # Close connection.
-        self.con.close()
 
-        return
+def query_db(sql, con):
+    """
+    Queries local PostgreSQL database.
+    Returns dataframe containing results of query.
+    """
 
-    def _query_db(self, sql):
-        """
-        Queries local PostgreSQL database.
-        - query: SQL query to be executed
-        Returns dataframe containing results of query.
-        """
+    # Results of query.
+    results = None
 
-        # Create variable for results.
-        results = None
+    try:
 
-        try:
-
-            # Read results of SQL query into dataframe.
-            results = pd.read_sql(sql, self.con)
-
-            return(results)
-
-        except Exception as e:
-
-            # Log error.
-            log.error(e)
+        # Read results of SQL query into dataframe.
+        results = pd.read_sql(sql, con)
 
         return(results)
 
-    def compare_results(self):
-        """Compares results of base case and test case.
-        Shows differences, if they exist."""
+    except Exception as e:
 
-        # Connect to database.
-        self._connect_to_db()
+        print('Error: ', e)
 
-        # SQL query.
-        sql = "SELECT * FROM diffusion_results_single_agent_base_case.agent_outputs"
+        exit(1)
 
-        # Read base results into dataframe.
-        base_results = self._query_db(sql=sql)
 
-        # Read test results into dataframe.
-        test_results = self._query_db(sql=sql)
+def compare_results(con):
+    """
+    Compares results of base case and test case.
+    Returns True and null dataframe if all elements are equal.
+    Returns False and dataframe with elements that differ otherwise.
+    """
 
-        # Check whether base results are equal to test results.
-        equal = base_results.equals(test_results)
+    # Read base results into dataframe.
+    base_sql = """
+    SELECT *
+    FROM diffusion_results_single_agent_base_case.agent_outputs
+    """
+    base_results = query_db(sql=base_sql, con=con)
 
-        if equal:
+    print('Base results: ', base_results)
 
-            # Notify user.
-            print("Congratulations, results match!")
+    # Read test results into dataframe.
+    test_sql = """
+    SELECT *
+    FROM diffusion_results_single_agent_test_case.agent_outputs
+    """
+    test_results = query_db(sql=test_sql, con=con)
 
-        else:
+    print('Test results: ', test_results)
 
-            # Notify user.
-            print("Sorry, results don't match...")
+    # Check whether elements of base results and test results are the same.
+    same = base_results.equals(test_results)
 
-            # Find how base results differ from test results.
-            differences = base_results.compare(test_results)
+    # Elements that differ.
+    diff = None
 
-            # Show differences.
-            print(differences)
+    if not equal:
 
-        # Disconnect from database.
-        self._disconnect_from_db()
+        # Find which elements differ.
+        diff = base_results.compare(test_results)
 
-        return(equal)
+    return(same, diff)
+
 
 # ------------------------------------------------------------------------------
 
@@ -153,20 +113,23 @@ if __name__ == '__main__':
     # Database name.
     database = 'dgen_db_de'
 
-    # Schema name(s).
+    # NOTE: schema names must be manually changed within SQL query.
     base_schema = 'diffusion_results_single_agent_base_case'
     test_schema = 'diffusion_results_single_agent_test_case'
 
-    # Table name.
+    # NOTE: table name must be manually changed within SQL query.
     table = 'agent_outputs'
 
-    # Create new CompareResults object.
-    compareResults = CompareResults(
-        database=database,
-        base_schema=base_schema,
-        test_schema=test_schema,
-        table=table
-    )
+    # Connect to database.
+    con = connect_to_db(database)
 
     # Compare results.
-    compareResults.compare_results()
+    same, diff = compare_results(con)
+
+    if same:
+        print("Congratulations, results match!")
+    else:
+        print("Sorry, results don't match... here's what's different:\n", diff)
+
+    # Disconnect from database.
+    disconnect_from_db(con)
