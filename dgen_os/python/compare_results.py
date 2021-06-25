@@ -97,7 +97,7 @@ def compare_results(con):
     # Elements that differ.
     diff = None
 
-    if not equal:
+    if not same:
 
         # Find which elements differ.
         diff = base_results.compare(test_results)
