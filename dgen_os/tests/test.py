@@ -66,11 +66,11 @@ def query_db(sql, con):
         exit(1)
 
 
-def compare_results(con):
+def compare_agent_outputs(con):
     """
-    Compares results of base case and test case.
-    Returns True and null dataframe if all elements are equal.
-    Returns False and dataframe with elements that differ otherwise.
+    Compares agent output tables of base scenario and test scenario.
+    Returns True (and null dataframe) if all elements of tables are equal.
+    Returns False (and dataframe containing elements that differ) otherwise.
     """
 
     # Read base results into dataframe.
@@ -110,22 +110,23 @@ def compare_results(con):
 
 if __name__ == '__main__':
 
-    # Database name.
+    # NOTE: change database name here.
     database = 'dgen_db_de'
 
-    # NOTE: schema names must be manually changed within SQL query.
+    # NOTE: schema names must be changed within SQL query.
     base_schema = 'diffusion_results_single_agent_base_case'
     test_schema = 'diffusion_results_single_agent_test_case'
 
-    # NOTE: table name must be manually changed within SQL query.
+    # NOTE: table name must be changed within SQL query.
     table = 'agent_outputs'
 
     # Connect to database.
     con = connect_to_db(database)
 
-    # Compare results.
-    same, diff = compare_results(con)
+    # Compare agent outputs of base and test scenarios.
+    same, diff = compare_agent_outputs(con)
 
+    # Notify user.
     if same:
         print("Congratulations, results match!")
     else:
