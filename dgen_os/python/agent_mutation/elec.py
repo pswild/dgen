@@ -33,14 +33,14 @@ def apply_elec_price_multiplier_and_escalator(dataframe, year, elec_price_change
     Also calculate the compound annual growth rate (CAGR) for the price of
     electricity from present year to 2050, which will be the escalator that
     agents use to project electricity changes in their bill calculations.
-    
+
     elec_price_multiplier = change in present-year elec cost to 2016
     elec_price_escalator = agent's assumption about future price changes
     Note that many customers will not differentiate between real and nominal,
     and therefore many would overestimate the real escalation of electriicty
     prices.
     '''
-    
+
     dataframe = dataframe.reset_index()
 
     # get current year multiplier values
@@ -54,7 +54,7 @@ def apply_elec_price_multiplier_and_escalator(dataframe, year, elec_price_change
     final_year = np.max(elec_price_change_traj['year'])
     final_year_df = elec_price_change_traj[elec_price_change_traj['year']==final_year].reset_index(drop=True)
     elec_price_escalator_df['final_year_values'] = final_year_df['elec_price_multiplier'].reset_index(drop=True)
-    
+
     # calculate CAGR for time period between final year and current year
     elec_price_escalator_df['elec_price_escalator'] = (elec_price_escalator_df['final_year_values'] / elec_price_escalator_df['elec_price_multiplier'])**(1.0/(final_year-year_cap)) - 1.0
 
@@ -75,28 +75,28 @@ def apply_elec_price_multiplier_and_escalator(dataframe, year, elec_price_change
 def apply_export_tariff_params(dataframe, net_metering_state_df, net_metering_utility_df):
 
     dataframe = dataframe.reset_index()
-    
+
     # specify relevant NEM columns
     nem_columns = ['compensation_style','nem_system_kw_limit']
-    
+
     # check if utility-specific NEM parameters apply to any agents - need to join on state too (e.g. Pacificorp UT vs Pacificorp ID)
     temp_df = pd.merge(dataframe, net_metering_utility_df[
                         ['eia_id','sector_abbr','state_abbr']+nem_columns], how='left', on=['eia_id','sector_abbr','state_abbr'])
-    
+
     # filter agents with non-null nem_system_kw_limit - these are agents WITH utility NEM
     agents_with_utility_nem = temp_df[pd.notnull(temp_df['nem_system_kw_limit'])]
-    
+
     # filter agents with null nem_system_kw_limit - these are agents WITHOUT utility NEM
     agents_without_utility_nem = temp_df[pd.isnull(temp_df['nem_system_kw_limit'])].drop(nem_columns, axis=1)
     # merge agents with state-specific NEM parameters
     agents_without_utility_nem = pd.merge(agents_without_utility_nem, net_metering_state_df[
                         ['state_abbr', 'sector_abbr']+nem_columns], how='left', on=['state_abbr', 'sector_abbr'])
-    
+
     # re-combine agents list and fill nan's
     dataframe = pd.concat([agents_with_utility_nem, agents_without_utility_nem], sort=False)
     dataframe['compensation_style'].fillna('none', inplace=True)
     dataframe['nem_system_kw_limit'].fillna(0, inplace=True)
-    
+
     dataframe = dataframe.set_index('agent_id')
 
     return dataframe
@@ -109,11 +109,11 @@ def apply_pv_tech_performance(dataframe, pv_tech_traj):
     dataframe = dataframe.reset_index()
 
     dataframe = pd.merge(dataframe, pv_tech_traj, how='left', on=['sector_abbr', 'year'])
-                         
+
     dataframe = dataframe.set_index('agent_id')
 
     return dataframe
-    
+
 
 #%%
 @decorators.fn_timer(logger=logger, tab_level=2, prefix='')
@@ -123,13 +123,13 @@ def apply_depreciation_schedule(dataframe, deprec_sch):
 
     dataframe = pd.merge(dataframe, deprec_sch[['sector_abbr', 'deprec_sch', 'year']],
                          how='left', on=['sector_abbr', 'year'])
-                         
+
     dataframe = dataframe.set_index('agent_id')
 
 
     return dataframe
 
-    
+
 #%%
 @decorators.fn_timer(logger=logger, tab_level=2, prefix='')
 def apply_pv_prices(dataframe, pv_price_traj):
@@ -158,8 +158,8 @@ def apply_batt_prices(dataframe, batt_price_traj, batt_tech_traj, year):
                                                      'batt_capex_per_kwh','batt_capex_per_kw','linear_constant',
                                                      'batt_om_per_kwh','batt_om_per_kw']],
                          how = 'left', on = ['sector_abbr', 'year'])
-                     
-    
+
+
     dataframe = dataframe.set_index('agent_id')
 
     return dataframe
@@ -167,9 +167,9 @@ def apply_batt_prices(dataframe, batt_price_traj, batt_tech_traj, year):
 
 @decorators.fn_timer(logger=logger, tab_level=2, prefix='')
 def apply_pv_plus_batt_prices(dataframe, pv_plus_batt_price_traj, batt_tech_traj, year):
-    
+
     dataframe = dataframe.reset_index()
-    
+
     # rename cost columns -- PV+batt configuration has distinct costs
     pv_plus_batt_price_traj.rename(columns={'system_capex_per_kw':'system_capex_per_kw_combined',
                               'batt_capex_per_kwh':'batt_capex_per_kwh_combined',
@@ -183,9 +183,9 @@ def apply_pv_plus_batt_prices(dataframe, pv_plus_batt_price_traj, batt_tech_traj
                                                              'system_capex_per_kw_combined',
                                                              'batt_capex_per_kwh_combined','batt_capex_per_kw_combined',
                                                              'linear_constant_combined',
-                                                             'batt_om_per_kw_combined','batt_om_per_kwh_combined']], 
+                                                             'batt_om_per_kw_combined','batt_om_per_kwh_combined']],
                          how = 'left', on = ['year', 'sector_abbr'])
-    
+
     dataframe = dataframe.set_index('agent_id')
 
     return dataframe
@@ -194,16 +194,16 @@ def apply_pv_plus_batt_prices(dataframe, pv_plus_batt_price_traj, batt_tech_traj
 #%%
 @decorators.fn_timer(logger=logger, tab_level=2, prefix='')
 def apply_value_of_resiliency(dataframe, value_of_resiliency):
-             
+
     dataframe = dataframe.reset_index()
 
     dataframe = dataframe.merge(value_of_resiliency[['state_abbr','sector_abbr','value_of_resiliency_usd']], how='left', on=['state_abbr', 'sector_abbr'])
-             
+
     dataframe = dataframe.set_index('agent_id')
-    
+
     return dataframe
 
-    
+
 #%%
 @decorators.fn_timer(logger=logger, tab_level=2, prefix='')
 def apply_batt_tech_performance(dataframe, batt_tech_traj):
@@ -211,9 +211,9 @@ def apply_batt_tech_performance(dataframe, batt_tech_traj):
     dataframe = dataframe.reset_index()
 
     dataframe = dataframe.merge(batt_tech_traj, how='left', on=['year', 'sector_abbr'])
-    
+
     dataframe = dataframe.set_index('agent_id')
-    
+
     return dataframe
 
 
@@ -225,13 +225,13 @@ def apply_financial_params(dataframe, financing_terms, itc_options, inflation_ra
 
     dataframe = dataframe.merge(financing_terms, how='left', on=['year', 'sector_abbr'])
 
-    dataframe = dataframe.merge(itc_options[['itc_fraction_of_capex', 'year', 'tech', 'sector_abbr']], 
+    dataframe = dataframe.merge(itc_options[['itc_fraction_of_capex', 'year', 'tech', 'sector_abbr']],
                                 how='left', on=['year', 'tech', 'sector_abbr'])
 
     dataframe['inflation_rate'] = inflation_rate
-    
+
     dataframe = dataframe.set_index('agent_id')
-    
+
     return dataframe
 
 
@@ -240,24 +240,24 @@ def apply_financial_params(dataframe, financing_terms, itc_options, inflation_ra
 def apply_load_growth(dataframe, load_growth_df):
 
     dataframe = dataframe.reset_index()
-    
+
     dataframe["county_id"] = dataframe.county_id.astype(int)
 
     dataframe = pd.merge(dataframe, load_growth_df, how='left', on=['year', 'sector_abbr', 'county_id'])
-    
+
     # for res, load growth translates to kwh_per_customer change
     dataframe['load_kwh_per_customer_in_bin'] = np.where(dataframe['sector_abbr']=='res',
                                                 dataframe['load_kwh_per_customer_in_bin_initial'] * dataframe['load_multiplier'],
                                                 dataframe['load_kwh_per_customer_in_bin_initial'])
-                                                
+
     # for C&I, load growth translates to customer count change
     dataframe['customers_in_bin'] = np.where(dataframe['sector_abbr']!='res',
                                                 dataframe['customers_in_bin_initial'] * dataframe['load_multiplier'],
                                                 dataframe['customers_in_bin_initial'])
-                                                
+
     # for all sectors, total kwh_in_bin changes
     dataframe['load_kwh_in_bin'] = dataframe['load_kwh_in_bin_initial'] * dataframe['load_multiplier']
-    
+
     dataframe = dataframe.set_index('agent_id')
 
     return dataframe
@@ -337,11 +337,11 @@ def get_nem_settings(state_limits, state_by_sector, utility_by_sector, selected_
 
     # Filter state and sector data to those that match states which have not sunset/reached peak capacity
     valid_state_sector = valid_state_sector[valid_state_sector['state_abbr'].isin(state_df['state_abbr'].values)]
-    
+
     # Filter utility and sector data to those that have not sunset
     selected_utility_by_sector = utility_by_sector.loc[utility_by_sector['scenario'] == selected_scenario]
     valid_utility_sector = filter_nem_year(selected_utility_by_sector, year)
-    
+
     # Filter out utility/sector combinations in states where capacity constraints have been reached
     # Assumes that utilities adhere to broader state capacity constraints, and not their own
     valid_utility_sector = valid_utility_sector[valid_utility_sector['state_abbr'].isin(state_df['state_abbr'].values)]
@@ -350,7 +350,7 @@ def get_nem_settings(state_limits, state_by_sector, utility_by_sector, selected_
     full_state_list = state_by_sector.loc[ state_by_sector['scenario'] == 'BAU' ].loc[:, ['state_abbr', 'sector_abbr']]
     state_result = pd.merge( full_state_list.drop_duplicates(), valid_state_sector, how='left', on=['state_abbr','sector_abbr'] )
     state_result['nem_system_kw_limit'].fillna(0, inplace=True)
-    
+
     # Return Utility/Sector data (or null) for all combinations of utilities and sectors
     full_utility_list = utility_by_sector.loc[ utility_by_sector['scenario'] == 'BAU' ].loc[:, ['eia_id','sector_abbr','state_abbr']]
     utility_result = pd.merge( full_utility_list.drop_duplicates(), valid_utility_sector, how='left', on=['eia_id','sector_abbr','state_abbr'] )
@@ -364,36 +364,36 @@ def get_and_apply_agent_load_profiles(con, agent):
     inputs['bldg_id'] = agent.loc['bldg_id']
     inputs['sector_abbr'] = agent.loc['sector_abbr']
     inputs['state_abbr'] = agent.loc['state_abbr']
-    
+
     sql = """SELECT bldg_id, sector_abbr, state_abbr,
                     kwh_load_profile as consumption_hourly
              FROM diffusion_load_profiles.{sector_abbr}stock_load_profiles
-                 WHERE bldg_id = {bldg_id} 
+                 WHERE bldg_id = {bldg_id}
                  AND sector_abbr = '{sector_abbr}'
                  AND state_abbr = '{state_abbr}';""".format(**inputs)
-                           
+
     df = pd.read_sql(sql, con, coerce_float=False)
-    
+
     df = df[['consumption_hourly']]
-    
+
     df['load_kwh_per_customer_in_bin'] = agent.loc['load_kwh_per_customer_in_bin']
 
     # scale the normalized profile to sum to the total load
     df = df.apply(scale_array_sum, axis=1, args=(
         'consumption_hourly', 'load_kwh_per_customer_in_bin'))
-    
-    
+
+
     return df
 
 #%%
 def get_and_apply_normalized_hourly_resource_solar(con, agent):
 
     inputs = locals().copy()
-    
+
     inputs['solar_re_9809_gid'] = agent.loc['solar_re_9809_gid']
     inputs['tilt'] = agent.loc['tilt']
     inputs['azimuth'] = agent.loc['azimuth']
-    
+
     sql = """SELECT solar_re_9809_gid, tilt, azimuth,
                     cf as generation_hourly,
                     1e6 as scale_offset
@@ -408,7 +408,7 @@ def get_and_apply_normalized_hourly_resource_solar(con, agent):
 
     # rename the column generation_hourly to solar_cf_profile
     df.rename(columns={'generation_hourly':'solar_cf_profile'}, inplace=True)
-          
+
     return df
 
 
@@ -455,7 +455,7 @@ def apply_carbon_intensities(dataframe, carbon_intensities):
     dataframe = dataframe.set_index('agent_id')
 
     return dataframe
-    
+
 
 #%%
 @decorators.fn_timer(logger=logger, tab_level=2, prefix='')
@@ -519,7 +519,7 @@ def apply_state_incentives(dataframe, state_incentives, year, start_year, state_
     yearly_escalation_function = lambda value, end_year: max(value - value * (1.0 / (end_year - start_year)) * (year-start_year), 0)
     for field in ['pbi_usd_p_kwh','cbi_usd_p_w','ibi_pct','cbi_usd_p_wh']:
         state_incentives[field] = state_incentives.apply(lambda row: yearly_escalation_function(row[field], row['end_date'].year), axis=1)
-        
+
     # Filter Incentives by the Years in which they are valid
     state_incentives = state_incentives.loc[
         pd.isnull(state_incentives['start_date']) | (pd.to_datetime(state_incentives['start_date']).dt.year <= year)]
@@ -543,9 +543,9 @@ def apply_state_incentives(dataframe, state_incentives, year, start_year, state_
 
     state_inc_df = pd.DataFrame(columns=['state_abbr', 'sector_abbr', 'state_incentives'])
     state_inc_df = pd.concat([state_inc_df, pd.DataFrame.from_records(output)], sort=False)
-    
+
     dataframe = pd.merge(dataframe, state_inc_df, on=['state_abbr','sector_abbr'], how='left')
-    
+
     dataframe = dataframe.set_index('agent_id')
 
     return dataframe
@@ -627,7 +627,7 @@ def estimate_initial_market_shares(dataframe, state_starting_capacities_df):
 #%%
 @decorators.fn_timer(logger=logger, tab_level=2, prefix='')
 def apply_market_last_year(dataframe, market_last_year_df):
-    
+
     dataframe = dataframe.merge(market_last_year_df, on=['agent_id'], how='left')
     return dataframe
 
@@ -642,7 +642,7 @@ def estimate_total_generation(dataframe):
     return dataframe
 
 
-#%%   
+#%%
 @decorators.fn_timer(logger=logger, tab_level=2, prefix='')
 def calc_state_capacity_by_year(con, schema, load_growth, peak_demand_mw, is_first_year, year,solar_agents, last_year_installed_capacity):
 
@@ -650,10 +650,10 @@ def calc_state_capacity_by_year(con, schema, load_growth, peak_demand_mw, is_fir
         # get state starting capacities for solar & storage and sum by state
         df = last_year_installed_capacity.groupby('state_abbr')[['system_mw','batt_mw','batt_mwh']].sum().reset_index()
         df.rename(columns={'system_mw':'cum_system_mw', 'batt_mw':'cum_batt_mw', 'batt_mwh':'cum_batt_mwh'}, inplace=True)
-        
+
         # Not all states have starting capacity, don't want to drop any states thus left join on peak_demand
         df = peak_demand_mw.merge(df, how='left').fillna(0)
-        
+
         # rename columns
         df.rename(columns={'peak_demand_mw_2014':'peak_demand_mw'}, inplace=True)
 
@@ -669,7 +669,7 @@ def calc_state_capacity_by_year(con, schema, load_growth, peak_demand_mw, is_fir
         load_growth_this_year = pd.merge(solar_agents.df[['state_abbr', 'county_id']], load_growth_this_year, how='left', on=['county_id'])
         load_growth_this_year = load_growth_this_year.groupby('state_abbr')['load_multiplier'].mean().reset_index()
         df = df.merge(load_growth_this_year, on = 'state_abbr')
-        
+
         df = peak_demand_mw.merge(df, how='left', on='state_abbr').fillna(0)
         df['peak_demand_mw'] = df['peak_demand_mw_2014'] * df['load_multiplier']
 
@@ -678,25 +678,25 @@ def calc_state_capacity_by_year(con, schema, load_growth, peak_demand_mw, is_fir
     # TODO: enforce program spending cap
     df['cum_incentive_spending_usd'] = 0
     df['year'] = year
-    
+
     df = df[['state_abbr','cum_system_mw','cum_batt_mw','cum_batt_mwh','cum_capacity_pct','cum_incentive_spending_usd','peak_demand_mw','year']]
-    
+
     return df
 
 
 #%%
 def get_rate_switch_table(con):
-    
+
     # get rate switch table from database
     sql = """SELECT * FROM diffusion_shared.rate_switch_lkup_2020;"""
     # sql = """SELECT * FROM diffusion_shared.rate_switch_lkup_2019;"""
     rate_switch_table = pd.read_sql(sql, con, coerce_float=False)
     rate_switch_table = rate_switch_table.reset_index(drop=True)
-    
+
     return rate_switch_table
 
 def apply_rate_switch(rate_switch_table, agent, system_size_kw, tech='solar'):
-    
+
     rate_switch_table = rate_switch_table.loc[rate_switch_table['tech'] == tech]
     rate_switch_table.rename(columns={'rate_id_alias':'tariff_id', 'json':'tariff_dict'}, inplace=True)
     rate_switch_table = rate_switch_table[(rate_switch_table['eia_id'] == agent.loc['eia_id']) &
@@ -705,7 +705,7 @@ def apply_rate_switch(rate_switch_table, agent, system_size_kw, tech='solar'):
                                           (rate_switch_table['max_kw_limit'] > system_size_kw)]
 
     rate_switch_table = rate_switch_table.reset_index(drop=True)
-    
+
     # check if a DG rate is applicable to agent
     if (system_size_kw > 0) & (len(rate_switch_table) == 1):
         # if valid DG rate available to agent, force NEM on
@@ -718,8 +718,8 @@ def apply_rate_switch(rate_switch_table, agent, system_size_kw, tech='solar'):
     else:
         # don't update agent attributes, return one time charge of $0
         one_time_charge = 0.
-    
-    
+
+
     return agent, one_time_charge
 
 
@@ -728,7 +728,7 @@ def apply_rate_switch(rate_switch_table, agent, system_size_kw, tech='solar'):
 def reassign_agent_tariffs(dataframe, con):
 
     # define rates to use in replacement of incorrect tariffs
-    
+
     # map res/com tariffs based on most likely tariff in state
     res_tariffs = {
                     'AL':17279, # Family Dwelling Service
@@ -781,7 +781,7 @@ def reassign_agent_tariffs(dataframe, con):
                     'WV':15515, # Residential Service A
                     'WY':15847 # Schedule 4 - Residential (Single Phase)
                     }
-    
+
     com_tariffs = {
                     'AL':15494, # BTA - BUSINESS TIME ADVANTAGE (OPTIONAL) - Primary
                     'AR':16674, # Small General Service (SGS)
@@ -833,47 +833,47 @@ def reassign_agent_tariffs(dataframe, con):
                     'WV':15518, # General Service C
                     'WY':3878 # General Service (GS)-Three phase
                     }
-    
+
     # map industrial tariffs based on census division
     ind_tariffs = {
                     'SA':16657, # Georgia Power Co, Schedule TOU-GSD-10 Time Of Use - General Service Demand
                     'WSC':15919, # Southwestern Public Service Co (Texas), Large General Service - Inside City Limits 115 KV
                     'PAC':15864, # PacifiCorp (Oregon), Schedule 47 - Secondary (Less than 4000 kW)
-                    'MA':16525, # New York State Elec & Gas Corp, All Regions - SERVICE CLASSIFICATION NO. 7-1 Large General Service TOU - Secondary -ESCO                   
-                    'MTN':17101, # Public Service Co of Colorado, Secondary General Service (Schedule SG)                   
-                    'ENC':15526, # Wisconsin Power & Light Co, Industrial Power Cp-1 (Secondary)                   
-                    'NE':16635, # Delmarva Power, General Service - Primary                   
-                    'ESC':15490, # Alabama Power Co, LPM - LIGHT AND POWER SERVICE - MEDIUM                   
+                    'MA':16525, # New York State Elec & Gas Corp, All Regions - SERVICE CLASSIFICATION NO. 7-1 Large General Service TOU - Secondary -ESCO
+                    'MTN':17101, # Public Service Co of Colorado, Secondary General Service (Schedule SG)
+                    'ENC':15526, # Wisconsin Power & Light Co, Industrial Power Cp-1 (Secondary)
+                    'NE':16635, # Delmarva Power, General Service - Primary
+                    'ESC':15490, # Alabama Power Co, LPM - LIGHT AND POWER SERVICE - MEDIUM
                     'WNC':6642 # Northern States Power Co - Wisconsin, Cg-9.1 Large General Time-of-Day Primary Mandatory Customers
                    }
-    
+
     dataframe = dataframe.reset_index()
 
     # separate agents with incorrect and correct rates
     bad_rates = dataframe.loc[np.in1d(dataframe['tariff_id'], [4145, 7111, 8498, 10953, 10954, 12003])]
     good_rates = dataframe.loc[~np.in1d(dataframe['tariff_id'], [4145, 7111, 8498, 10953, 10954, 12003])]
-    
+
     # if incorrect rates exist, grab the correct ones from the rates table
     if len(bad_rates) > 0:
-        
+
         # set new tariff_id based on location
         bad_rates['tariff_id'] = np.where(bad_rates['sector_abbr']=='res',
                                           bad_rates['state_abbr'].map(res_tariffs),
                                           np.where(bad_rates['sector_abbr']=='com',
                                                    bad_rates['state_abbr'].map(com_tariffs),
                                                    bad_rates['census_division_abbr'].map(ind_tariffs)))
-        
+
         # get json objects for new rates and rename columns in preparation for merge
         new_rates_json_df = get_electric_rates_json(con, bad_rates['tariff_id'].tolist())
         new_rates_json_df = (new_rates_json_df
                              .drop(['rate_name','eia_id'], axis='columns')
                              .rename(columns={'rate_id_alias':'tariff_id','rate_json':'tariff_dict'})
                             )
-        
+
         # drop bad tariff_dict from agent dataframe and merge correct one
         bad_rates = bad_rates.drop(['tariff_dict'], axis='columns')
         bad_rates = bad_rates.merge(new_rates_json_df, how='left', on='tariff_id')
-    
+
     # reconstruct full agent dataframe
     dataframe = pd.concat([good_rates, bad_rates], ignore_index=True, sort=False)
     dataframe = dataframe.set_index('agent_id')
